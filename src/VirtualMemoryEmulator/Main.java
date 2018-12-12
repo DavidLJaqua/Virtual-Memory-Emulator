@@ -50,43 +50,46 @@ public class Main {
 		
 		while (true) {
 			logicalAddress = addressReader.getNextAddress();
-			if (logicalAddress != -1000000) {
-				pageNumberAndOffset = getPageNumberAndOffsetFromAddress(logicalAddress);
-				pageNumber = pageNumberAndOffset[0];
-				offset = pageNumberAndOffset[1];
-				
-				/*
-				 * check if the page is currently in the tlb lookup table, if not, check the page table.
-				 * if it isn't in the page table, then a page fault has occured, and it must be loaded from storage into memory
-				 */
-				if(tlb.doesPageExist(pageNumber) == true) {
-					// this page already exists in the tlb lookup table, thus it is already loaded in physical memory (no page fault)
-					frameNumber = tlb.getFrameNumber(pageNumber);
-					physicalAddress = physicalMemory.getPhysicalAddress(frameNumber, offset);
-					value = physicalMemory.getByteFromMemory(frameNumber, offset);
-					numTLBHits++;
-				}
-				else if (pageTable.doesFrameExist(pageNumber) == true) {
-					// this page already exists in the page table, thus it is already loaded in physical memory (no page fault)
-					frameNumber = pageTable.getFrameNumber(pageNumber);
-					tlb.setFrameNumber(pageNumber, frameNumber);
-					physicalAddress = physicalMemory.getPhysicalAddress(frameNumber, offset);
-					value = physicalMemory.getByteFromMemory(frameNumber, offset);
-				} else {
-					// this page is not in the page table or tlb lookup table, thus is is not loaded in memory (Page fault)
-					// load it into memory and store the returned frame in the page table and tlb with the associated page number
-					numPageFaults++;
-					frameNumber = physicalMemory.loadFrameFromDiskAndStore(pageNumber);
-					pageTable.setFrameNumber(pageNumber, frameNumber);
-					tlb.setFrameNumber(pageNumber, frameNumber);
-					physicalAddress = physicalMemory.getPhysicalAddress(frameNumber, offset);
-					value = physicalMemory.getByteFromMemory(frameNumber, offset);
-				}
-				System.out.println("Virtual Address: " + logicalAddress + " | Physical Address: " + physicalAddress
-						+ " | Value: " + value);
-			} else {
+			if (logicalAddress == -1000000) {
 				break; // reached end of addresses
 			}
+			pageNumberAndOffset = getPageNumberAndOffsetFromAddress(logicalAddress);
+			pageNumber = pageNumberAndOffset[0];
+			offset = pageNumberAndOffset[1];
+			
+			/*
+			 * check if the page is currently in the tlb lookup table, if not, check the page table.
+			 * if it isn't in the page table, then a page fault has occured, and it must be loaded from storage into memory
+			 */
+			if(tlb.doesPageExist(pageNumber) == true) {
+				// this page already exists in the tlb lookup table, thus it is already loaded in physical memory (no page fault)
+				frameNumber = tlb.getFrameNumber(pageNumber);
+				physicalAddress = physicalMemory.getPhysicalAddress(frameNumber, offset);
+				value = physicalMemory.getByteFromMemory(frameNumber, offset);
+				numTLBHits++;
+			}
+			else if (pageTable.doesFrameExist(pageNumber) == true) {
+				// this page already exists in the page table, thus it is already loaded in physical memory (no page fault)
+				frameNumber = pageTable.getFrameNumber(pageNumber);
+				tlb.setFrameNumber(pageNumber, frameNumber);
+				physicalAddress = physicalMemory.getPhysicalAddress(frameNumber, offset);
+				value = physicalMemory.getByteFromMemory(frameNumber, offset);
+			} else {
+				// this page is not in the page table or tlb lookup table, thus is is not loaded in memory (Page fault)
+				// load it into memory and store the returned frame in the page table and tlb with the associated page number
+				numPageFaults++;
+				frameNumber = physicalMemory.loadFrameFromDiskAndStore(pageNumber);
+				if (frameNumber == -1) {
+					// error occurred because BACKING_STORE.bin file does not exist in the program's active directory
+					return; // terminate execution
+				}
+				pageTable.setFrameNumber(pageNumber, frameNumber);
+				tlb.setFrameNumber(pageNumber, frameNumber);
+				physicalAddress = physicalMemory.getPhysicalAddress(frameNumber, offset);
+				value = physicalMemory.getByteFromMemory(frameNumber, offset);
+			}
+			System.out.println("Virtual Address: " + logicalAddress + " | Physical Address: " + physicalAddress
+					+ " | Value: " + value);
 		}
 		System.out.println("\nNumber of page faults: " + numPageFaults + "/1000 (" + round(numPageFaults/1000.0*100.0) + "%)");
 		System.out.println("TLB hit rate: " + numTLBHits + "/1000 (" + round(numTLBHits/1000.0*100.0) + "%)");
